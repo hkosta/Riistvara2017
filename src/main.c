@@ -72,7 +72,7 @@ void main(void)
 
     print_for_human(stdout, ascii, 128);
 
-    while (1){
+    while (1) {
         blink_leds();
         int s; /*initsialiseerib inputi*/
         printf(ENTER_NUMBER);
@@ -80,7 +80,8 @@ void main(void)
         printf("%d", s); /*prindib sisestatud numbri*/
 
         if ( s >= 0 && s <= 9) {
-            printf(INPUT_PRINT, numbers[s]); /*prindib sisestatud numbrile vastava väärtuse sõnede massiivist*/
+            printf(INPUT_PRINT,
+                   numbers[s]); /*prindib sisestatud numbrile vastava väärtuse sõnede massiivist*/
             lcd_puts(numbers[s]);
             exit(0);
         } else {
