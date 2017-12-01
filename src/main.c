@@ -1,9 +1,14 @@
 #include <stdio.h>
+#include <string.h>
+#include <stdlib.h>
 #define __ASSERT_USE_STDERR
 #include <assert.h>
 #include <avr/io.h>
 #include <util/delay.h>
 #include "uart.h"
+#include "print_helper.h"
+#include "hmi_msg.h"
+#include "../lib/hd44780_111/hd44780.h"
 
 #define BLINK_DELAY_MS 100
 
@@ -62,28 +67,40 @@ void main(void)
 {
     init_leds();
     init_errcon();
-    /* Test assert - REMOVE IN FUTURE LABS */
-    char *array;
-    uint32_t i = 1;
-    extern int __heap_start, *__brkval;
-    int v;
-    array = malloc( i * sizeof(char));
-    assert(array);
-    /* End test assert */
+    lcd_init();
+    lcd_home();
+    lcd_puts(strPtr);
+    lcd_goto(LCD_ROW_2_START);
+    simple_uart0_init();
+    stdin = stdout = &simple_uart0_io;
+    fprintf (stdout, strPtr);
+    fprintf (stdout, "\n");
+    /*fprintf(stdout, stud_name, "\n");*/
+    print_ascii_tbl(stdout);
+    unsigned char ascii[128] = {0};
+
+    for (unsigned char i = 0; i < 128; i++) {
+        ascii[i] = i;
+    }
+
+    print_for_human(stdout, ascii, 128);
 
     while (1) {
         blink_leds();
-        /* Test assert - REMOVE IN FUTURE LABS */
-        /*
-         * Increase memory allocated for array by 100 chars
-         * until we have eaten it all and print space between stack and heap.
-         * That is how assert works in run-time.
-         */
-        array = realloc( array, (i++ * 100) * sizeof(char));
-        fprintf(stderr, "%d\n",
-                (int) &v - (__brkval == 0 ? (int) &__heap_start : (int) __brkval));
-        assert(array);
-        /* End test assert */
+        int s;
+        printf("Enter number > ");
+        fscanf(stdin, "%d", &s);
+        printf("%d", s);
+
+        if ( s >= 0 && s <= 9) {
+            printf("\nYou entered number %s\n", numbers[s]);
+            lcd_puts(numbers[s]);
+            exit(0);
+        } else {
+            printf("\nPlease enter number between 0 and 9! \n");
+            lcd_puts("Please enter number between 0 and 9!");
+            exit(1);
+        }
     }
 }
 
