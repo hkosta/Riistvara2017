@@ -1,11 +1,6 @@
 #include <stdio.h>
-#include <string.h>
-#include <stdlib.h>
-#define __ASSERT_USE_STDERR
-#include <assert.h>
 #include <avr/io.h>
 #include <util/delay.h>
-#include <avr/pgmspace.h>
 #include "uart.h"
 #include "print_helper.h"
 #include "hmi_msg.h"
@@ -30,8 +25,14 @@ static inline void init_errcon(void)
 {
     simple_uart1_init();
     stderr = &simple_uart1_out;
-    fprintf_P(stderr, PSTR(VER_FW "\n"));
-    fprintf_P(stderr, PSTR(VER_LIBC "\n"));
+    fprintf_P(stderr, PSTR(VER_LIBC));
+    fprintf_P(stderr, PSTR(VER_FW));
+}
+
+static inline void init_clicon(void)
+{
+    simple_uart0_init(); /*initsialiseerib uart0*/
+    stdout = stdin = &simple_uart0_io;
 }
 
 static inline void blink_leds(void)
@@ -51,18 +52,19 @@ static inline void blink_leds(void)
     _delay_ms(BLINK_DELAY_MS);
 }
 
+
+
 void main(void)
 {
     init_leds();
     init_errcon();
+    init_clicon();
     lcd_init();
     lcd_home();
-    lcd_puts(strPtr); /*prindib ekraanile minu nime*/
+    lcd_puts_P(PSTR(NAME)); /*prindib ekraanile minu nime*/
     lcd_goto(LCD_ROW_2_START); /*liigub ekraanil järgmise rea algusesse*/
-    simple_uart0_init(); /*initsialiseerib uart0*/
-    stdin = stdout = &simple_uart0_io;
-    fprintf (stdout, strPtr); /*prindib konsooli minu nime*/
-    fprintf (stdout, "\n");
+    fprintf_P(stdout, PSTR(NAME)); /*prindib konsooli minu nime*/
+    fprintf(stdout, "\n");
     print_ascii_tbl(stdout); /*prindib konsooli ASCII tabeli*/
     unsigned char ascii[128] = {0}; /*loob massiivi ja täidab selle väärtustega 0-127*/
 
@@ -75,19 +77,22 @@ void main(void)
     while (1) {
         blink_leds();
         int s; /*initsialiseerib inputi*/
-        printf(ENTER_NUMBER);
+        fprintf_P(stdout, PSTR(ENTER_NUMBER));
         fscanf(stdin, "%d", &s); /*võtab klaviatuurisisestuse sisse*/
-        printf("%d", s); /*prindib sisestatud numbri*/
+        fprintf(stdout, "%d", s); /*prindib sisestatud numbri*/
 
         if ( s >= 0 && s <= 9) {
-            printf(INPUT_PRINT,
-                   numbers[s]); /*prindib sisestatud numbrile vastava väärtuse sõnede massiivist*/
-            lcd_puts(numbers[s]);
-            exit(0);
+            lcd_clrscr();
+            fprintf_P(stdout, PSTR(INPUT_PRINT));
+            fprintf_P(stdout, PSTR("%S"),
+                      (PGM_P)pgm_read_word(&numbers[s])); /*prindib sisestatud numbrile vastava väärtuse sõnede massiivist*/
+            lcd_puts_P((PGM_P)pgm_read_word(&numbers[s]));
+            stderr;
         } else {
-            printf(ERROR); /*hoiatus vale sisestuse puhul*/
-            lcd_puts(ERROR_LCD);
-            exit(1);
+            lcd_clrscr();
+            fprintf_P(stdout, PSTR(ERROR)); /*hoiatus vale sisestuse puhul*/
+            lcd_puts_P(PSTR(ERROR_LCD));
+            stderr;
         }
     }
 }
