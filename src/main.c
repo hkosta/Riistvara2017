@@ -1,98 +1,121 @@
 #include <stdio.h>
 #include <avr/io.h>
+#include <avr/pgmspace.h>
+#include <avr/interrupt.h>
+#include <time.h>
 #include <util/delay.h>
-#include "uart.h"
 #include "print_helper.h"
+#include "cli_microrl.h"
 #include "hmi_msg.h"
 #include "../lib/hd44780_111/hd44780.h"
+#include "../lib/andygock_avr-­‐uart/uart.h"
+#include "../lib/helius_microrl/ microrl.h"
 
-#define BLINK_DELAY_MS 100
+#define UART_BAUD           9600
+#define UART_STATUS_MASK    0x00FF
+
+#define BLINK_DELAY_MS  2000
+#define LED_RED         PORTA0 // Arduino Mega digital pin 22
+#define LED_GREEN         PORTA2 // Arduino Mega digital pin 24
+#define LED_BLUE         PORTA4 // Arduino Mega digital pin 26
+
+//Create microrl object and pointer on it
+microrl_t rl;
+microrl_t *prl = &rl;
 
 static inline void init_leds(void)
 {
-    /* Set port B pin 7 for output for Arduino Mega yellow LED*/
-    DDRB |= _BV(DDB7);
-    /* Set port A pin 0 for output for RGB LED red light*/
-    DDRA |= _BV(DDA0);
-    /* Set port A pin 2 for output for RGB LED blue light*/
-    DDRA |= _BV(DDA2);
-    /* Set port A pin 4 for output for RGB LED green light*/
-    DDRA |= _BV(DDA4);
+    /* RGB LED board set up and off */
+    DDRA |= _BV(LED_RED) | _BV(LED_GREEN);
+    PORTA &= ~(_BV(LED_RED) | _BV(LED_GREEN));
 }
 
 /* Init error console as stderr in UART1 and print user code info */
 static inline void init_errcon(void)
 {
-    simple_uart1_init();
-    stderr = &simple_uart1_out;
-    fprintf_P(stderr, PSTR(VER_LIBC));
-    fprintf_P(stderr, PSTR(VER_FW));
+    uart1_init(UART_BAUD_SELECT(UART_BAUD, F_CPU));
+    uart1_puts_p(PSTR("Console started\r\n"));
 }
 
 static inline void init_clicon(void)
 {
-    simple_uart0_init(); /*initsialiseerib uart0*/
-    stdout = stdin = &simple_uart0_io;
+    uart0_init(UART_BAUD_SELECT(UART_BAUD, F_CPU));
+    uart0_puts_p((PGM_P)pgm_read_word(&stud_name[]));
+    //Call init with ptr to microrl instance and print callback
+    microrl_init(prl, uart0_puts);
+    //Set callback for execute
+    microrl_set_execute_callback(prl, cli_execute);
 }
 
-static inline void blink_leds(void)
+static inline void init_sys_timer(void)
 {
-    PORTB &= ~_BV(PORTB7);
-    PORTA |= _BV(PORTA0);
-    _delay_ms(BLINK_DELAY_MS);
-    PORTA &= ~_BV(PORTA0);
-    _delay_ms(BLINK_DELAY_MS);
-    PORTA |= _BV(PORTA2);
-    _delay_ms(BLINK_DELAY_MS);
-    PORTA &= ~_BV(PORTA2);
-    _delay_ms(BLINK_DELAY_MS);
-    PORTA |= _BV(PORTA4);
-    _delay_ms(BLINK_DELAY_MS);
-    PORTA &= ~_BV(PORTA4);
-    _delay_ms(BLINK_DELAY_MS);
+    //    counter_1 = 0; // Set counter to random number 0x19D5F539 in HEX. Set it to 0 if you want
+    TCCR1A = 0;
+    TCCR1B = 0;
+    TCCR1B |= _BV(WGM12); // Turn on CTC (Clear Timer on Compare)
+    TCCR1B |= _BV(CS12); // fCPU/256
+    OCR1A = 62549; // Note that it is actually two registers OCR5AH and OCR5AL
+    TIMSK1 |= _BV(OCIE1A); // Output Compare A Match Interrupt Enable
 }
 
-
-
-void main(void)
+//Süsteemi aja väljatrükiks ASCII märkidena saab kasutada ltoa() funktsiooni.
+static inline void print_sys_time(void)
 {
-    init_leds();
-    init_errcon();
-    init_clicon();
+    // Note that print frequency depends from big program simulation duration.
+    // See heartbeat snippet for how to print system time once per second.
+    char iso_time[20] = {0x00};
+    struct tm now_tm;
+    time_t now = time(NULL);
+    gmtime_r(&now, &now_tm);
+    isotime_r(&now_tm, iso_time);
+    uart1_puts(iso_time);
+    uart1_puts_p(PSTR("\r\n"));
+}
+
+static inline void heartbeat(void)
+{
+    static time_t prev_time;
+    char ascii_buf[11] = {0x00};
+    time_t now = time(NULL);
+
+    if (prev_time != now) {
+        //Print uptime to uart1
+        ltoa(now, ascii_buf, 10);
+        uart1_puts_p(PSTR("Uptime: "));
+        uart1_puts(ascii_buf);
+        uart1_puts_p(PSTR(" s.\r\n"));
+        //Toggle LED
+        PORTA ^= _BV(LED_GREEN);
+        prev_time = now;
+    }
+}
+
+static inline void init_lcd(void) {
     lcd_init();
     lcd_home();
     lcd_puts_P(PSTR(NAME)); /*prindib ekraanile minu nime*/
     lcd_goto(LCD_ROW_2_START); /*liigub ekraanil järgmise rea algusesse*/
+}
+
+void main(void)
+{
+    init_sys_timer();
+    init_leds();
+    init_lcd();
+    init_errcon();
+    init_clicon();
     fprintf_P(stdout, PSTR(NAME)); /*prindib konsooli minu nime*/
-    fprintf(stdout, "\n");
-    print_ascii_tbl(stdout); /*prindib konsooli ASCII tabeli*/
-    unsigned char ascii[128] = {0}; /*loob massiivi ja täidab selle väärtustega 0-127*/
-
-    for (unsigned char i = 0; i < 128; i++) {
-        ascii[i] = i;
-    }
-
-    print_for_human(stdout, ascii, 128);
+    fprintf(stdout, "\r\n");
 
     while (1) {
-        blink_leds();
-        int s; /*initsialiseerib inputi*/
-        fprintf_P(stdout, PSTR(ENTER_NUMBER));
-        fscanf(stdin, "%d", &s); /*võtab klaviatuurisisestuse sisse*/
-        fprintf(stdout, "%d", s); /*prindib sisestatud numbri*/
-
-        if ( s >= 0 && s <= 9) {
-            lcd_clrscr();
-            fprintf_P(stdout, PSTR(INPUT_PRINT));
-            fprintf_P(stdout, PSTR("%S"),
-                      (PGM_P)pgm_read_word(&numbers[s])); /*prindib sisestatud numbrile vastava väärtuse sõnede massiivist*/
-            lcd_puts_P((PGM_P)pgm_read_word(&numbers[s]));
-            stderr;
-        } else {
-            lcd_clrscr();
-            fprintf_P(stdout, PSTR(ERROR)); /*hoiatus vale sisestuse puhul*/
-            lcd_puts_P(PSTR(ERROR_LCD));
-            stderr;
-        }
+        heartbeat();
+        // CLI commands are handled in cli_execute()
+        microrl_insert_char(prl, (uart0_getc() & UART_STATUS_MASK));
     }
+}
+
+/* Counter 1 ISR */
+ISR(TIMER1_COMPA_vect)
+{
+    system_tick();
 }
