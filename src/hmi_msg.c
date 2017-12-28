@@ -1,7 +1,7 @@
 #include <avr/pgmspace.h>
 #include "hmi_msg.h"
 
-const char stud_name[] PROGMEM "Helen Kosta"
+const char stud_name[] PROGMEM = "Helen Kosta";
 
 const char n0[] PROGMEM = "Zero";
 const char n1[] PROGMEM = "One";

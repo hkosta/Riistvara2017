@@ -99,36 +99,28 @@ void cli_print_ascii_tbls(const char *const *argv)
 
 void cli_handle_number(const char *const *argv)
 {
-    // TODO remove those two lines after command is implemented
     (void) argv;
-            int s; /*initsialiseerib inputi*/
-        fprintf_P(stdout, PSTR(ENTER_NUMBER));
-        fscanf(stdin, "%d", &s); /*võtab klaviatuurisisestuse sisse*/
-        fprintf(stdout, "%d", s); /*prindib sisestatud numbri*/
-
-        if ( s >= 0 && s <= 9) {
+         /*initsialiseerib inputi*/
+        /*fprintf_P(stdout, PSTR(ENTER_NUMBER));
+        fscanf(stdin, "%d", &s); võtab klaviatuurisisestuse sisse
+        fprintf(stdout, "%d", s); prindib sisestatud numbri*/
+        int input = atoi(argv[1]);
+        if ( input >= 0 && input <= 9) {
             lcd_clrscr();
-            fprintf_P(stdout, PSTR(INPUT_PRINT));
-            fprintf_P(stdout, PSTR("%S"),
-                      (PGM_P)pgm_read_word(&numbers[s])); /*prindib sisestatud numbrile vastava väärtuse sõnede massiivist*/
-            lcd_puts_P((PGM_P)pgm_read_word(&numbers[s]));
-            stderr;
+            uart0_puts_p(PSTR("Your number"));
+            uart0_puts_p((PGM_P)pgm_read_word(&numbers[input])); /*prindib sisestatud numbrile vastava väärtuse sõnede massiivist*/
+            lcd_puts_P((PGM_P)pgm_read_word(&numbers[input]));
         } else {
             lcd_clrscr();
-            fprintf_P(stdout, PSTR(ERROR)); /*hoiatus vale sisestuse puhul*/
-            lcd_puts_P(PSTR(ERROR_LCD));
-            stderr;
+            uart0_puts_p(PSTR("Wrong number!!!")); /*hoiatus vale sisestuse puhul*/
+            lcd_puts_P(PSTR("Wrong number!!!"));
         }
-    uart0_puts_p(
-        PSTR("Command not implemented yet.\r\n\tImplement it by yourself!\r\n"));
 }
-
 
 void cli_print_cmd_error(void)
 {
     uart0_puts_p(PSTR("Command not implemented.\r\n\tUse <help> to get help.\r\n"));
 }
-
 
 void cli_print_cmd_arg_error(void)
 {
@@ -136,11 +128,9 @@ void cli_print_cmd_arg_error(void)
         PSTR("To few or too many arguments for this command\r\n\tUse <help>\r\n"));
 }
 
-
 int cli_execute(int argc, const char *const *argv)
 {
     // Move cursor to new line. Then user can see what was entered.
-    //FIXME Why microrl does not do it?
 
     for (uint8_t i = 0; i < NUM_ELEMS(cli_cmds); i++) {
         if (!strcmp_P(argv[0], cli_cmds[i].cmd)) {

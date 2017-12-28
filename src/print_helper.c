@@ -1,5 +1,7 @@
 #include <stdio.h>
+#include <avr/pgmspace.h>
 #include "print_helper.h"
+#include "../lib/andygock_avr-uart/uart.h"
 
 void print_ascii_tbl(void)
 {
