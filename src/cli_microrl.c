@@ -10,7 +10,6 @@
 #include "hmi_msg.h"
 #include "cli_microrl.h"
 #include "print_helper.h"
-#include "main.c"
 
 #define NUM_ELEMS(x)        (sizeof(x) / sizeof((x)[0]))
 
