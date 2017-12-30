@@ -5,6 +5,8 @@
 #define VER_LIBC "avr-libc version: " __AVR_LIBC_VERSION_STRING__ " avr-gcc version: " __VERSION__ "\r\n"
 
 extern const char stud_name[];
+extern const char version[];
+extern const char avr_version[];
 extern PGM_P const numbers[];
 
 #endif /* HMI_MSG_H_ */

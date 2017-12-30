@@ -92,28 +92,40 @@ void cli_print_ascii_tbls(const char *const *argv)
     for (unsigned char i = 0; i < 128; i++) {
         ascii[i] = i;
     }
-    
+
     print_for_human(ascii, 128);
 }
 
 void cli_handle_number(const char *const *argv)
 {
     (void) argv;
-         /*initsialiseerib inputi*/
-        /*fprintf_P(stdout, PSTR(ENTER_NUMBER));
-        fscanf(stdin, "%d", &s); võtab klaviatuurisisestuse sisse
-        fprintf(stdout, "%d", s); prindib sisestatud numbri*/
-        int input = atoi(argv[1]);
-        if ( input >= 0 && input <= 9) {
-            lcd_clrscr();
-            uart0_puts_p(PSTR("Your number"));
-            uart0_puts_p((PGM_P)pgm_read_word(&numbers[input])); /*prindib sisestatud numbrile vastava väärtuse sõnede massiivist*/
-            lcd_puts_P((PGM_P)pgm_read_word(&numbers[input]));
-        } else {
-            lcd_clrscr();
-            uart0_puts_p(PSTR("Wrong number!!!")); /*hoiatus vale sisestuse puhul*/
-            lcd_puts_P(PSTR("Wrong number!!!"));
+
+    for (size_t i = 0; i < strlen(argv[1]); i++) {
+        if (!isdigit(argv[1][i])) {
+            uart0_puts_p(PSTR("Argument is not a decimal number!\r\n"));
+            return;
         }
+    }
+
+    /*initsialiseerib inputi*/
+    /*fprintf_P(stdout, PSTR(ENTER_NUMBER));
+    fscanf(stdin, "%d", &s); võtab klaviatuurisisestuse sisse
+    fprintf(stdout, "%d", s); prindib sisestatud numbri*/
+    int input = atoi(argv[1]);
+
+    if ( input >= 0 && input <= 9) {
+        lcd_clrscr();
+        uart0_puts_p(PSTR("Your entered number "));
+        uart0_puts_p((PGM_P)pgm_read_word(
+                         &numbers[input])); /*prindib sisestatud numbrile vastava väärtuse sõnede massiivist*/
+        uart0_puts_p(PSTR("\r\n"));
+        lcd_puts_P((PGM_P)pgm_read_word(&numbers[input]));
+    } else {
+        lcd_clrscr();
+        uart0_puts_p(
+            PSTR("Please enter number between 0 and 9!\r\n")); /*hoiatus vale sisestuse puhul*/
+        lcd_puts_P(PSTR("Please enter number between 0 and 9!\r\n"));
+    }
 }
 
 void cli_print_cmd_error(void)
@@ -130,7 +142,6 @@ void cli_print_cmd_arg_error(void)
 int cli_execute(int argc, const char *const *argv)
 {
     // Move cursor to new line. Then user can see what was entered.
-
     for (uint8_t i = 0; i < NUM_ELEMS(cli_cmds); i++) {
         if (!strcmp_P(argv[0], cli_cmds[i].cmd)) {
             // Test do we have correct arguments to run command
