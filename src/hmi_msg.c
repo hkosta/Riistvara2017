@@ -7,6 +7,7 @@ const char version[] PROGMEM = "Version: " FW_VERSION " built on: " __DATE__ " "
 const char avr_version[] PROGMEM = "avr-libc version: "
                                    __AVR_LIBC_VERSION_STRING__ " avr-gcc version: " __VERSION__ "\r\n";
 
+
 const char n0[] PROGMEM = "zero";
 const char n1[] PROGMEM = "one";
 const char n2[] PROGMEM = "two";

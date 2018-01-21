@@ -10,6 +10,9 @@
 #include "../lib/hd44780_111/hd44780.h"
 #include "../lib/andygock_avr-uart/uart.h"
 #include "../lib/helius_microrl/microrl.h"
+#include "../lib/matejx_avr_lib/mfrc522.h"
+#include "../lib/matejx_avr_lib/spi.h"
+#include "../lib/andy_brown_memdebug/memdebug.h"
 
 #define UART_BAUD           9600
 #define UART_STATUS_MASK    0x00FF
@@ -18,13 +21,18 @@
 #define LED_GREEN         PORTA2 // Arduino Mega digital pin 24
 #define LED_BLUE         PORTA4 // Arduino Mega digital pin 26
 
-#define COUNT_SECONDS       // seconds
-
 #include <stdlib.h> // stdlib is needed to use ltoa() - Long to ASCII
 
 /* Global seconds counter */
 volatile uint32_t counter_1;
 
+/*init mfrc522*/
+static inline void init_rfid_reader(void)    
+{
+    /*Init RFID-­‐RC522*/
+    MFRC522_init();
+    PCD_Init();
+}
 
 //Create microrl object and pointer on it
 microrl_t rl;
@@ -63,18 +71,19 @@ static inline void init_counter_1(void)
     TCCR1A = 0;
     TCCR1B = 0;
     TCCR1B |= _BV(WGM12); // Turn on CTC (Clear Timer on Compare)
-#ifdef COUNT_SECONDS
     TCCR1B |= _BV(CS12); // fCPU/256
     OCR1A = 62549; // Note that it is actually two registers OCR5AH and OCR5AL
-#endif /* COUNT_SECONDS */
     TIMSK1 |= _BV(OCIE1A); // Output Compare A Match Interrupt Enable
 }
 
 static inline void heartbeat(void)
 {
     static uint32_t counter_1_prev;
+    uint32_t counter_1_cpy = 0;
     char ascii_buf[11] = {0x00}; // Buffer lagre enough to hold all long (uint32_t) digits
-    uint32_t counter_1_cpy = counter_1;
+        ATOMIC_BLOCK(ATOMIC_FORCEON) {
+            counter_1_cpy = counter_1;
+        }
 
     if (counter_1_cpy != counter_1_prev) {
         ltoa(counter_1_cpy, ascii_buf, 10);
@@ -83,9 +92,7 @@ static inline void heartbeat(void)
         uart1_puts_p(PSTR(" s\r\n"));
         //Toggle LED
         PORTA ^= _BV(LED_RED);
-        ATOMIC_BLOCK(ATOMIC_FORCEON) {
-            counter_1_cpy = counter_1_prev;
-        }
+        counter_1_prev = counter_1_cpy;
     }
 }
 
@@ -99,6 +106,7 @@ static inline void init_lcd(void)
 
 void main(void)
 {
+    init_rfid_reader();
     init_leds();
     init_lcd();
     init_errcon();
