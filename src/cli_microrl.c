@@ -24,11 +24,7 @@ void cli_handle_number(const char *const *argv);
 void cli_print_cmd_error(void);
 void cli_print_cmd_arg_error(void);
 void cli_rfid_read(const char *const *argv);
-//void rfid_card_add(const char *const *argv);
-//void rfid_card_remove(const char *const *argv);
-//void rfid_card_print_list(void);
-//void rfid_process_card(void);
-//void rfid_handle_door_and_disp(void);
+void cli_rfid_card_add(const char *const *argv);
 void cli_mem_stat(const char *const *argv);
 
 typedef struct cli_cmd {
@@ -38,13 +34,18 @@ typedef struct cli_cmd {
     const uint8_t func_argc;
 } cli_cmd_t;
 
+typedef struct rfid_card {
+    char uid;
+    char *name;
+} rfid_card_t;
+
 typedef struct rfid_card_list {
-    struct rfid_card *next;
     uint8_t uid_size;
     char *name;
     uint8_t uid[10];
-    uint8_t sak;
-} rfid_card_t;
+    rfid_card_t *rfid_cardt;
+    struct rfid_card_list *next;
+} rfid_card_list_t;
 
 //static rfid_card_t *head = NULL;
 
@@ -62,9 +63,12 @@ const char mem_stat_cmd[] PROGMEM = "mem";
 const char mem_stat_help[] PROGMEM = "Print memory usage and change compared to previous call";
 const char read_cmd[] PROGMEM = "read";
 const char read_help[] PROGMEM = "Reads a RFID card and displays its data";
+const char add_cmd[] PROGMEM = "add";
+const char add_help[] PROGMEM = "Add new card into system. Usage: add <Card number> <Cardholder name>";
 
 const cli_cmd_t cli_cmds[] = {
     {read_cmd, read_help, cli_rfid_read, 0},
+    {add_cmd, add_help, cli_rfid_card_add, 2},
     {help_cmd, help_help, cli_print_help, 0},
     {ver_cmd, ver_help, cli_print_ver, 0},
     {example_cmd, example_help, cli_example, 3},
@@ -88,8 +92,9 @@ if (result != STATUS_OK) {
     if (PICC_IsNewCardPresent()){
         uart0_puts(PSTR("Card selected!\r\n"));
         PICC_ReadCardSerial(uid_ptr);
+        uart0_puts_p(PSTR("UID sak: "));
+        uart0_puts(PICC_GetTypeName(PICC_GetType(uid.sak)));
         printf("UID size: 0x%02X\r\n", uid.size);
-        printf("UID sak: 0x%02X\r\n", uid.sak);
         uart0_puts_p(PSTR("Card UID: "));
         for (byte i = 0; i < uid.size; i++){
             printf("%02X", uid.uidByte[i]);
@@ -101,6 +106,47 @@ if (result != STATUS_OK) {
     }
     }
 }
+
+void cli_rfid_card_add(const char *const *argv)
+{
+    rfid_card_t *rfid_card_ptr = NULL;
+    rfid_card_ptr = malloc(sizeof(rfid_card_t));
+
+    if (rfid_card_ptr == NULL) {
+        printf("Card not saved\n");
+        exit(1);
+    }
+
+    rfid_card_ptr->name = malloc(strlen(argv[1]) + 1);
+
+    if (rfid_card_ptr->name == NULL) {
+        printf("Card not saved\n");
+        free(rfid_card_ptr);
+    }
+
+    strcpy(rfid_card_ptr->name, argv[1]);
+    rfid_card_ptr->uid = strlen(argv[1]);
+    uart0_puts_p((PSTR("Card is saved.\r\n")));
+}
+
+/*void cli_rfid_card_list_print(void)
+{
+    rfid_card_t *current = rfid_card_ptr;
+    int card = 0;
+    char cards[10];
+    printf("Train sats:\n");
+
+    while (current != NULL) {
+        itoa(card, cards, 10);
+        printf("Train. %d ID: %d\n", ++card, current->name);
+        t_gargo += current->cargo->weight;
+        current = current->next;
+    }
+
+    if (t_gargo) {
+        printf("Total cargo in train %u (kg)\n", t_gargo);
+    }
+}*/
 
 void cli_print_help(const char *const *argv)
 {
